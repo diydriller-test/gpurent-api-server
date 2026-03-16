@@ -1,0 +1,22 @@
+from fastapi import FastAPI
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+from app.database import engine, Base
+from app.routers import auth
+
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(
+    title="GPU Rent API Server",
+    description="API 서버",
+    version="1.0.0"
+)
+
+app.include_router(auth.router)
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
