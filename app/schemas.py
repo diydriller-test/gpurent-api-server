@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime
 
@@ -32,3 +32,19 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
+
+
+class ApiKeyIssueResponse(BaseModel):
+    api_key: str
+    message: str = "API 키는 이번에만 표시됩니다. 안전한 곳에 저장하세요."
+
+
+class ApiKeyResponse(BaseModel):
+    id: int
+    api_key: str = Field(validation_alias="key")
+    is_active: bool
+    created_at: Optional[datetime] = None
+    last_used_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True

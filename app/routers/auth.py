@@ -57,7 +57,7 @@ def login_with_email(
             detail="Inactive user"
         )
     
-    access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(days=auth.ACCESS_TOKEN_EXPIRE_DAYS)
     access_token = auth.create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
@@ -68,3 +68,77 @@ def login_with_email(
 def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
     """현재 로그인한 사용자 정보 조회"""
     return current_user
+
+
+@router.post(
+    "/api-keys",
+    response_model=schemas.ApiKeyIssueResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_api_key(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    """API 키 발급"""
+    existing = (
+        db.query(models.ApiKey)
+        .filter(models.ApiKey.user_id == current_user.id)
+        .first()
+    )
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="API key already exists",
+        )
+
+    api_key_jwt = auth.create_api_key_jwt(current_user.id)
+    db_api_key = models.ApiKey(user_id=current_user.id, key=api_key_jwt, is_active=True)
+    db.add(db_api_key)
+    db.commit()
+
+    return {
+        "api_key": api_key_jwt,
+        "message": "API 키가 발급되었습니다. 조회 API로 언제든 확인할 수 있습니다.",
+    }
+
+
+@router.get("/api-keys", response_model=schemas.ApiKeyResponse)
+def get_api_key(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    """API 키 조회"""
+    api_key = (
+        db.query(models.ApiKey)
+        .filter(
+            models.ApiKey.user_id == current_user.id,
+            models.ApiKey.is_active == True,
+        )
+        .first()
+    )
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="API key not found",
+        )
+    return api_key
+
+
+@router.delete("/api-keys", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_api_key(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    """API 키 삭제 (hard delete)"""
+    db_api_key = (
+        db.query(models.ApiKey)
+        .filter(models.ApiKey.user_id == current_user.id)
+        .first()
+    )
+    if not db_api_key:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="API key not found",
+        )
+    db.delete(db_api_key)
+    db.commit()
