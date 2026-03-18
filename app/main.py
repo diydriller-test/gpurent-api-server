@@ -5,10 +5,12 @@ import os
 
 load_dotenv()
 
-from app.database import engine, Base
-from app.routers import auth
+from app.database import engine, Base, SessionLocal
+from app.routers import auth, plans
+from app import models
 
 Base.metadata.create_all(bind=engine)
+
 
 app = FastAPI(
     title="GPU Rent API Server",
@@ -25,6 +27,8 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(plans.router)
+
 
 @app.get("/health")
 def health_check():

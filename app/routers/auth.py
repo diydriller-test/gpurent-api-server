@@ -4,6 +4,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from app import models, schemas, auth
 from app.database import get_db
+from app import redis_client as redis_store
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -29,7 +30,7 @@ def signup(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
     db_user = models.User(
         email=user_data.email,
         username=user_data.username,
-        hashed_password=hashed_password
+        hashed_password=hashed_password,
     )
     db.add(db_user)
     db.commit()
@@ -65,8 +66,42 @@ def login_with_email(
 
 
 @router.get("/me", response_model=schemas.UserResponse)
-def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
-    """현재 로그인한 사용자 정보 조회"""
+def read_users_me(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    """현재 로그인한 사용자 정보 조회 (선택한 플랜 포함)"""
+    db.refresh(current_user, ["plan"])
+    return current_user
+
+
+@router.patch("/me/plan", response_model=schemas.UserResponse)
+def update_my_plan(
+    body: schemas.PlanSelect,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    """플랜 선택/변경 (로그인 필요)"""
+    plan = db.query(models.Plan).filter(
+        models.Plan.id == body.plan_id,
+        models.Plan.is_active == True,
+    ).first()
+    if not plan:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid plan_id. Use GET /plans to see available plans.",
+        )
+    current_user.plan_id = body.plan_id
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user, ["plan"])
+    # 게이트웨이용 Redis에 플랜 정보 반영 (plan:{account_id})
+    redis_store.set_plan_for_account(
+        account_id=current_user.id,
+        max_rps=plan.max_rps,
+        plan_id=plan.id,
+        plan_name=plan.name,
+    )
     return current_user
 
 
