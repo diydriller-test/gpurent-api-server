@@ -1,7 +1,7 @@
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app import models, schemas, auth
 from app.database import get_db
 from app import redis_client as redis_store
@@ -35,8 +35,14 @@ def signup(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
-    
-    return db_user
+    return schemas.UserResponse(
+        id=db_user.id,
+        email=db_user.email,
+        username=db_user.username,
+        api_plans=[],
+        is_active=db_user.is_active,
+        created_at=db_user.created_at,
+    )
 
 
 @router.post("/login", response_model=schemas.Token)
@@ -70,9 +76,36 @@ def read_users_me(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
-    """현재 로그인한 사용자 정보 조회 (선택한 플랜 포함)"""
-    db.refresh(current_user, ["plan"])
-    return current_user
+    """현재 로그인한 사용자 정보 조회 (API별 구독 플랜 목록 포함)"""
+    user = (
+        db.query(models.User)
+        .options(
+            joinedload(models.User.user_api_plans).joinedload(models.UserApiPlan.api).joinedload(models.Api.company),
+            joinedload(models.User.user_api_plans).joinedload(models.UserApiPlan.plan),
+        )
+        .filter(models.User.id == current_user.id)
+        .first()
+    )
+    api_plans = [
+        schemas.UserApiPlanItem(
+            api_id=uap.api_id,
+            api_name=uap.api.name,
+            company_id=uap.api.company_id,
+            company_name=uap.api.company.name,
+            plan_id=uap.plan_id,
+            plan_name=uap.plan.name,
+            max_rps=uap.plan.max_rps,
+        )
+        for uap in user.user_api_plans
+    ]
+    return schemas.UserResponse(
+        id=user.id,
+        email=user.email,
+        username=user.username,
+        api_plans=api_plans,
+        is_active=user.is_active,
+        created_at=user.created_at,
+    )
 
 
 @router.patch("/me/plan", response_model=schemas.UserResponse)
@@ -81,28 +114,81 @@ def update_my_plan(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
-    """플랜 선택/변경 (로그인 필요)"""
+    """API별 플랜 선택/변경 (로그인 필요). api_id + plan_id 로 해당 API에 대한 플랜 설정."""
+    api = db.query(models.Api).filter(models.Api.id == body.api_id).first()
+    if not api:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid api_id. Use GET /apis to see available APIs.",
+        )
     plan = db.query(models.Plan).filter(
         models.Plan.id == body.plan_id,
+        models.Plan.api_id == body.api_id,
         models.Plan.is_active == True,
     ).first()
     if not plan:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid plan_id. Use GET /plans to see available plans.",
+            detail="Invalid plan_id or plan does not belong to this API. Use GET /plans?api_id=... to see available plans.",
         )
-    current_user.plan_id = body.plan_id
-    db.add(current_user)
+    uap = (
+        db.query(models.UserApiPlan)
+        .filter(
+            models.UserApiPlan.user_id == current_user.id,
+            models.UserApiPlan.api_id == body.api_id,
+        )
+        .first()
+    )
+    if uap:
+        uap.plan_id = body.plan_id
+        db.add(uap)
+    else:
+        uap = models.UserApiPlan(
+            user_id=current_user.id,
+            api_id=body.api_id,
+            plan_id=body.plan_id,
+        )
+        db.add(uap)
     db.commit()
-    db.refresh(current_user, ["plan"])
-    # 게이트웨이용 Redis에 플랜 정보 반영 (plan:{account_id})
-    redis_store.set_plan_for_account(
+    # 게이트웨이용 Redis: plan:{account_id}:{api_id}
+    redis_store.set_plan_for_account_api(
         account_id=current_user.id,
+        api_id=body.api_id,
+        api_name=api.name,
         max_rps=plan.max_rps,
         plan_id=plan.id,
         plan_name=plan.name,
     )
-    return current_user
+    # 응답은 GET /me 와 동일한 형태 (joinedload로 재조회)
+    user = (
+        db.query(models.User)
+        .options(
+            joinedload(models.User.user_api_plans).joinedload(models.UserApiPlan.api).joinedload(models.Api.company),
+            joinedload(models.User.user_api_plans).joinedload(models.UserApiPlan.plan),
+        )
+        .filter(models.User.id == current_user.id)
+        .first()
+    )
+    api_plans = [
+        schemas.UserApiPlanItem(
+            api_id=uap.api_id,
+            api_name=uap.api.name,
+            company_id=uap.api.company_id,
+            company_name=uap.api.company.name,
+            plan_id=uap.plan_id,
+            plan_name=uap.plan.name,
+            max_rps=uap.plan.max_rps,
+        )
+        for uap in user.user_api_plans
+    ]
+    return schemas.UserResponse(
+        id=user.id,
+        email=user.email,
+        username=user.username,
+        api_plans=api_plans,
+        is_active=user.is_active,
+        created_at=user.created_at,
+    )
 
 
 @router.post(

@@ -1,6 +1,6 @@
 """
 게이트웨이와 공유하는 Redis 클라이언트.
-플랜 변경 시 plan:{account_id} 키로 max_rps, plan_id, plan_name 저장.
+API별 플랜 변경 시 plan:{account_id}:{api_id} 키로 max_rps, plan_id, plan_name 저장.
 """
 import json
 import os
@@ -35,18 +35,26 @@ def get_redis():
     return _REDIS_CLIENT
 
 
-def set_plan_for_account(account_id: int, max_rps: int, plan_id: int, plan_name: str) -> bool:
+def set_plan_for_account_api(
+    account_id: int,
+    api_id: int,
+    api_name: str,
+    max_rps: int,
+    plan_id: int,
+    plan_name: str,
+) -> bool:
     """
-    플랜 정보를 Redis에 저장. 키: plan:{account_id}
+    API별 플랜 정보를 Redis에 저장. 키: plan:{account_id}:{api_id}
     값: {"max_rps": 50, "plan_id": 2, "plan_name": "Pro"}
-    게이트웨이가 이 키를 읽어 rate limit 등에 사용.
+    게이트웨이가 이 키를 읽어 API별 rate limit 등에 사용.
     """
     client = get_redis()
     if not client:
         return False
-    key = f"plan:{account_id}"
+    key = f"plan:{account_id}:{api_id}"
     value = json.dumps({
         "max_rps": max_rps,
+        "api_name": api_name,
         "plan_id": plan_id,
         "plan_name": plan_name,
     }, ensure_ascii=False)

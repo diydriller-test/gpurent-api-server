@@ -5,9 +5,11 @@ from decimal import Decimal
 
 
 class PlanResponse(BaseModel):
-    """Plan 모델과 동일 필드. 프론트: id, name, description, maxRps, price, period, features."""
+    """Plan 모델과 동일 필드. api_id 로 소속 API 식별."""
     id: int
     name: str
+    api_id: int
+    api_name: Optional[str] = None
     price_monthly: Decimal
     description: Optional[str] = None
     max_rps: int = 0
@@ -20,6 +22,47 @@ class PlanResponse(BaseModel):
         from_attributes = True
 
 
+class CompanyResponse(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
+class CompanyCreate(BaseModel):
+    """회사 등록 요청"""
+    name: str
+
+
+class ApiCreate(BaseModel):
+    """회사가 API 등록 요청"""
+    name: str
+    company_id: int
+
+
+class ApiResponse(BaseModel):
+    """API(기능) 목록용. 등록 회사(company) 포함."""
+    id: int
+    name: str
+    company_id: int
+    company_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class UserApiPlanItem(BaseModel):
+    """유저가 특정 API에 대해 선택한 플랜 한 건 (라우터에서 api/plan 조인 후 구성)."""
+    api_id: int
+    api_name: str
+    company_id: int
+    company_name: str
+    plan_id: int
+    plan_name: str
+    max_rps: int
+
+
 class UserBase(BaseModel):
     email: EmailStr
     username: str
@@ -30,7 +73,8 @@ class UserCreate(UserBase):
 
 
 class PlanSelect(BaseModel):
-    """플랜 선택/변경 요청"""
+    """API별 플랜 선택/변경 요청 (api_id + plan_id)"""
+    api_id: int
     plan_id: int
 
 
@@ -41,8 +85,7 @@ class UserLogin(BaseModel):
 
 class UserResponse(UserBase):
     id: int
-    plan_id: Optional[int] = None 
-    plan: Optional[PlanResponse] = None
+    api_plans: List[UserApiPlanItem] = []  # API별 구독 플랜 목록
     is_active: bool
     created_at: Optional[datetime] = None
 
