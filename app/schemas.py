@@ -42,11 +42,18 @@ class ApiCreate(BaseModel):
 
 
 class ApiResponse(BaseModel):
-    """API(기능) 목록용. 등록 회사(company) 포함."""
+    """API 목록 응답."""
     id: int
     name: str
     company_id: int
     company_name: Optional[str] = None
+    task_key: Optional[str] = None
+    task_label: Optional[str] = None
+    card_sublabel: Optional[str] = None
+    model_display: Optional[str] = None
+    tags: List[str] = []
+    is_active: bool = True
+    sort_order: int = 0
 
     class Config:
         from_attributes = True

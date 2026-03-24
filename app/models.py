@@ -39,6 +39,13 @@ class Api(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String(100), nullable=False)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False, index=True)
+    task_key = Column(String(100), nullable=True)
+    task_label = Column(String(100), nullable=True)
+    card_sublabel = Column(String(200), nullable=True)
+    model_display = Column(String(100), nullable=True)
+    tags = Column(JSONB, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    sort_order = Column(Integer, default=0, nullable=False)
 
     company = relationship("Company", back_populates="apis")
     plans = relationship("Plan", back_populates="api")
