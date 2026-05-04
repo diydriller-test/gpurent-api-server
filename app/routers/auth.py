@@ -211,6 +211,50 @@ def update_my_plan(
 
 
 @router.post(
+    "/accounts/approve",
+    response_model=schemas.AccountApproveResponse,
+    status_code=status.HTTP_200_OK,
+)
+def approve_account(body: schemas.AccountApproveRequest, db: Session = Depends(get_db)):
+    """
+    사용자 계정 승인
+    """
+    # 사용자 조회
+    user = db.query(models.User).filter(models.User.id == body.account_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    # 가장 최근 발급분 조회
+    latest_key = (
+        db.query(models.ApiKey)
+        .filter(models.ApiKey.user_id == body.account_id)
+        .order_by(models.ApiKey.token_version.desc())
+        .first()
+    )
+    if not latest_key:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="API key not found for this account",
+        )
+    # 승인
+    latest_key.is_approved = True
+    db.commit()
+    # Redis에 계정 메타 정보 설정
+    redis_store.set_account_meta(
+        account_id=body.account_id,
+        approved=True,
+        token_version=latest_key.token_version,
+    )
+    return schemas.AccountApproveResponse(
+        account_id=body.account_id,
+        approved=True,
+        token_version=latest_key.token_version,
+    )
+
+
+@router.post(
     "/api-keys",
     response_model=schemas.ApiKeyIssueResponse,
     status_code=status.HTTP_201_CREATED,

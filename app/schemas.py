@@ -111,6 +111,18 @@ class TokenData(BaseModel):
     email: Optional[str] = None
 
 
+class AccountApproveRequest(BaseModel):
+    """계정(API 키) 승인 요청."""
+
+    account_id: int
+
+
+class AccountApproveResponse(BaseModel):
+    account_id: int
+    approved: bool
+    token_version: int
+
+
 class ApiKeyIssueResponse(BaseModel):
     api_key: str
     message: str = "API 키는 이번에만 표시됩니다. 안전한 곳에 저장하세요."
