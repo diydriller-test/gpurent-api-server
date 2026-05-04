@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from typing import Optional, List
 from datetime import datetime
 from decimal import Decimal
@@ -43,6 +43,12 @@ class ApiCreate(BaseModel):
 
 class ApiResponse(BaseModel):
     """API 목록 응답."""
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        protected_namespaces=(),  # model_display 가 Pydantic 의 model_ 보호 충돌 방지
+    )
+
     id: int
     name: str
     company_id: int
@@ -54,9 +60,6 @@ class ApiResponse(BaseModel):
     tags: List[str] = []
     is_active: bool = True
     sort_order: int = 0
-
-    class Config:
-        from_attributes = True
 
 
 class UserApiPlanItem(BaseModel):
