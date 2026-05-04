@@ -120,7 +120,6 @@ class AccountApproveRequest(BaseModel):
 class AccountApproveResponse(BaseModel):
     account_id: int
     approved: bool
-    token_version: int
 
 
 class ApiKeyIssueResponse(BaseModel):
@@ -131,7 +130,6 @@ class ApiKeyIssueResponse(BaseModel):
 class ApiKeyResponse(BaseModel):
     id: int
     api_key: str = Field(validation_alias="key")
-    token_version: int
     is_approved: bool = False
     created_at: Optional[datetime] = None
     last_used_at: Optional[datetime] = None

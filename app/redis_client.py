@@ -1,7 +1,7 @@
 """
 게이트웨이와 공유하는 Redis 클라이언트.
 - API별 플랜: plan:{account_id}:{api_name}
-- 계정 메타(API 키 승인·버전): account:{account_id}
+- 계정 메타(API 키 JWT·승인): account:{account_id}
 """
 import json
 import os
@@ -66,14 +66,10 @@ def set_plan_for_account_api(
         return False
 
 
-def set_account_meta(
-    account_id: int,
-    approved: bool,
-    token_version: int,
-) -> bool:
+def set_account_meta(account_id: int, approved: bool, token: str) -> bool:
     """
     계정별 API 키 메타 저장. 키: account:{account_id}
-    값: {"account_id", "approved", "token_version"} (현재 발급분 기준)
+    값: {"account_id", "approved", "token"} — token 은 현재 유효한 API 키 JWT 문자열
     """
     client = get_redis()
     if not client:
@@ -83,7 +79,7 @@ def set_account_meta(
         {
             "account_id": account_id,
             "approved": approved,
-            "token_version": token_version,
+            "token": token,
         },
         ensure_ascii=False,
     )

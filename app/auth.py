@@ -5,7 +5,6 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, APIKeyHeader
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app import models
 from app.database import get_db
@@ -86,22 +85,11 @@ def get_current_user(
     return user
 
 
-def next_api_key_token_version(db: Session, user_id: int) -> int:
-    """해당 사용자의 다음 API 키 token_version (기존 최댓값 + 1, 없으면 1)."""
-    m = (
-        db.query(func.max(models.ApiKey.token_version))
-        .filter(models.ApiKey.user_id == user_id)
-        .scalar()
-    )
-    return (m or 0) + 1
-
-
-def create_api_key_jwt(user_id: int, token_version: int) -> str:
-    """API 키용 JWT 생성 (검증 시 DB의 최신 token_version·승인 여부와 함께 확인)."""
+def create_api_key_jwt(user_id: int) -> str:
+    """API 키용 JWT 생성."""
     to_encode = {
         "sub": str(user_id),
         "iss": ISSUER,
-        "ver": token_version,
     }
     return jwt.encode(to_encode, API_KEY_SECRET, algorithm=ALGORITHM)
 

@@ -36,12 +36,10 @@ def signup(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
     db.add(db_user)
     db.flush()
     # API 키 생성
-    ver = auth.next_api_key_token_version(db, db_user.id)
-    api_key_jwt = auth.create_api_key_jwt(db_user.id, ver)
+    api_key_jwt = auth.create_api_key_jwt(db_user.id)
     db_api_key = models.ApiKey(
         user_id=db_user.id,
         key=api_key_jwt,
-        token_version=ver,
     )
     db.add(db_api_key)
     db.commit()
@@ -51,7 +49,7 @@ def signup(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
     redis_store.set_account_meta(
         account_id=db_user.id,
         approved=db_api_key.is_approved,
-        token_version=db_api_key.token_version,
+        token=api_key_jwt,
     )
 
     return schemas.UserResponse(
@@ -230,7 +228,10 @@ def approve_account(body: schemas.AccountApproveRequest, db: Session = Depends(g
     latest_key = (
         db.query(models.ApiKey)
         .filter(models.ApiKey.user_id == body.account_id)
-        .order_by(models.ApiKey.token_version.desc())
+        .order_by(
+            models.ApiKey.created_at.desc(),
+            models.ApiKey.id.desc(),
+        )
         .first()
     )
     if not latest_key:
@@ -245,12 +246,11 @@ def approve_account(body: schemas.AccountApproveRequest, db: Session = Depends(g
     redis_store.set_account_meta(
         account_id=body.account_id,
         approved=True,
-        token_version=latest_key.token_version,
+        token=latest_key.key,
     )
     return schemas.AccountApproveResponse(
         account_id=body.account_id,
         approved=True,
-        token_version=latest_key.token_version,
     )
 
 
@@ -264,13 +264,10 @@ def create_api_key(
     db: Session = Depends(get_db),
 ):
     """API 키 발급"""
-    # 토큰 버전 증가
-    ver = auth.next_api_key_token_version(db, current_user.id)
-    api_key_jwt = auth.create_api_key_jwt(current_user.id, ver)
+    api_key_jwt = auth.create_api_key_jwt(current_user.id)
     db_api_key = models.ApiKey(
         user_id=current_user.id,
         key=api_key_jwt,
-        token_version=ver,
     )
     db.add(db_api_key)
     db.commit()
@@ -279,7 +276,7 @@ def create_api_key(
     redis_store.set_account_meta(
         account_id=current_user.id,
         approved=db_api_key.is_approved,
-        token_version=db_api_key.token_version,
+        token=api_key_jwt,
     )
 
     return {
@@ -298,7 +295,10 @@ def get_api_key(
     api_key = (
         db.query(models.ApiKey)
         .filter(models.ApiKey.user_id == current_user.id)
-        .order_by(models.ApiKey.token_version.desc())
+        .order_by(
+            models.ApiKey.created_at.desc(),
+            models.ApiKey.id.desc(),
+        )
         .first()
     )
     if not api_key:
