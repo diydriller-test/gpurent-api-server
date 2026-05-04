@@ -12,20 +12,21 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/signup", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
 def signup(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
     """회원가입"""
+    # 이메일 중복 체크
     db_user = auth.get_user_by_email(db, email=user_data.email)
     if db_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered"
         )
-    
+    # 이름 중복 체크
     db_user = auth.get_user_by_username(db, username=user_data.username)
     if db_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already taken"
         )
-    
+    # 유저 생성
     hashed_password = auth.get_password_hash(user_data.password)
     db_user = models.User(
         email=user_data.email,
@@ -33,8 +34,26 @@ def signup(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
         hashed_password=hashed_password,
     )
     db.add(db_user)
+    db.flush()
+    # API 키 생성
+    ver = auth.next_api_key_token_version(db, db_user.id)
+    api_key_jwt = auth.create_api_key_jwt(db_user.id, ver)
+    db_api_key = models.ApiKey(
+        user_id=db_user.id,
+        key=api_key_jwt,
+        token_version=ver,
+    )
+    db.add(db_api_key)
     db.commit()
     db.refresh(db_user)
+    db.refresh(db_api_key)
+    # Redis에 계정 메타 정보 설정
+    redis_store.set_account_meta(
+        account_id=db_user.id,
+        approved=db_api_key.is_approved,
+        token_version=db_api_key.token_version,
+    )
+
     return schemas.UserResponse(
         id=db_user.id,
         email=db_user.email,
@@ -201,21 +220,23 @@ def create_api_key(
     db: Session = Depends(get_db),
 ):
     """API 키 발급"""
-    existing = (
-        db.query(models.ApiKey)
-        .filter(models.ApiKey.user_id == current_user.id)
-        .first()
+    # 토큰 버전 증가
+    ver = auth.next_api_key_token_version(db, current_user.id)
+    api_key_jwt = auth.create_api_key_jwt(current_user.id, ver)
+    db_api_key = models.ApiKey(
+        user_id=current_user.id,
+        key=api_key_jwt,
+        token_version=ver,
     )
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="API key already exists",
-        )
-
-    api_key_jwt = auth.create_api_key_jwt(current_user.id)
-    db_api_key = models.ApiKey(user_id=current_user.id, key=api_key_jwt, is_active=True)
     db.add(db_api_key)
     db.commit()
+    db.refresh(db_api_key)
+    # Redis에 계정 메타 정보 설정
+    redis_store.set_account_meta(
+        account_id=current_user.id,
+        approved=db_api_key.is_approved,
+        token_version=db_api_key.token_version,
+    )
 
     return {
         "api_key": api_key_jwt,
@@ -229,12 +250,11 @@ def get_api_key(
     db: Session = Depends(get_db),
 ):
     """API 키 조회"""
+    # 가장 최근 발급분 조회
     api_key = (
         db.query(models.ApiKey)
-        .filter(
-            models.ApiKey.user_id == current_user.id,
-            models.ApiKey.is_active == True,
-        )
+        .filter(models.ApiKey.user_id == current_user.id)
+        .order_by(models.ApiKey.token_version.desc())
         .first()
     )
     if not api_key:
@@ -250,16 +270,18 @@ def revoke_api_key(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
-    """API 키 삭제 (hard delete)"""
-    db_api_key = (
+    """API 키 삭제"""
+    rows = (
         db.query(models.ApiKey)
         .filter(models.ApiKey.user_id == current_user.id)
-        .first()
+        .all()
     )
-    if not db_api_key:
+    if not rows:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="API key not found",
         )
-    db.delete(db_api_key)
+    for row in rows:
+        db.delete(row)
     db.commit()
+    redis_store.delete_account_meta(current_user.id)

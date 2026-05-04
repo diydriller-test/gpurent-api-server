@@ -116,7 +116,8 @@ class ApiKeyIssueResponse(BaseModel):
 class ApiKeyResponse(BaseModel):
     id: int
     api_key: str = Field(validation_alias="key")
-    is_active: bool
+    token_version: int
+    is_approved: bool = False
     created_at: Optional[datetime] = None
     last_used_at: Optional[datetime] = None
 

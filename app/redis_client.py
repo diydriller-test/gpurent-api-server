@@ -1,7 +1,7 @@
 """
 게이트웨이와 공유하는 Redis 클라이언트.
-API별 플랜 변경 시 plan:{account_id}:{api_name} 키로 max_rps, plan_id, plan_name 저장.
-api_name은 소문자로 변환하여 사용 (예: plan:1:embedding).
+- API별 플랜: plan:{account_id}:{api_name}
+- 계정 메타(API 키 승인·버전): account:{account_id}
 """
 import json
 import os
@@ -61,6 +61,46 @@ def set_plan_for_account_api(
     }, ensure_ascii=False)
     try:
         client.set(key, value)
+        return True
+    except Exception:
+        return False
+
+
+def set_account_meta(
+    account_id: int,
+    approved: bool,
+    token_version: int,
+) -> bool:
+    """
+    계정별 API 키 메타 저장. 키: account:{account_id}
+    값: {"account_id", "approved", "token_version"} (현재 발급분 기준)
+    """
+    client = get_redis()
+    if not client:
+        return False
+    key = f"account:{account_id}"
+    value = json.dumps(
+        {
+            "account_id": account_id,
+            "approved": approved,
+            "token_version": token_version,
+        },
+        ensure_ascii=False,
+    )
+    try:
+        client.set(key, value)
+        return True
+    except Exception:
+        return False
+
+
+def delete_account_meta(account_id: int) -> bool:
+    """account:{account_id} 키 제거 (API 키 전부 삭제 시 등)."""
+    client = get_redis()
+    if not client:
+        return False
+    try:
+        client.delete(f"account:{account_id}")
         return True
     except Exception:
         return False
