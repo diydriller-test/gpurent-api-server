@@ -19,6 +19,7 @@ def list_apis(db: Session = Depends(get_db)):
         schemas.ApiResponse(
             id=api.id,
             name=api.name,
+            slug=getattr(api, "slug", None),
             company_id=api.company_id,
             company_name=api.company.name,
             task_key=api.task_key,

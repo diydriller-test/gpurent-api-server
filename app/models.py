@@ -38,6 +38,7 @@ class Api(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String(100), nullable=False)
+    slug = Column(String(100), nullable=True, index=True)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False, index=True)
     task_key = Column(String(100), nullable=True)
     task_label = Column(String(100), nullable=True)

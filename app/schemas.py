@@ -51,6 +51,7 @@ class ApiResponse(BaseModel):
 
     id: int
     name: str
+    slug: Optional[str] = None
     company_id: int
     company_name: Optional[str] = None
     task_key: Optional[str] = None
