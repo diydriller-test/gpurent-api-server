@@ -45,7 +45,7 @@ def signup(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_user)
     db.refresh(db_api_key)
-    # Redis에 계정 메타 정보 설정
+    # Redis에 계정 정보 설정(account:{account_id})
     redis_store.set_account_meta(
         account_id=db_user.id,
         approved=db_api_key.is_approved,
@@ -67,7 +67,7 @@ def login_with_email(
     login_data: schemas.UserLogin,
     db: Session = Depends(get_db)
 ):
-    """이메일과 비밀번호로 로그인"""
+    """로그인"""
     user = auth.authenticate_user(db, login_data.email, login_data.password)
     if not user:
         raise HTTPException(
@@ -93,7 +93,7 @@ def read_users_me(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
-    """현재 로그인한 사용자 정보 조회 (API별 구독 플랜 목록 포함)"""
+    """사용자 정보 조회"""
     user = (
         db.query(models.User)
         .options(
@@ -131,13 +131,15 @@ def update_my_plan(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
-    """API별 플랜 선택/변경 (로그인 필요). api_id + plan_id 로 해당 API에 대한 플랜 설정."""
+    """API별 플랜 선택"""
+    # API 조회
     api = db.query(models.Api).filter(models.Api.id == body.api_id).first()
     if not api:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid api_id. Use GET /apis to see available APIs.",
         )
+    # 플랜 조회
     plan = db.query(models.Plan).filter(
         models.Plan.id == body.plan_id,
         models.Plan.api_id == body.api_id,
@@ -156,6 +158,7 @@ def update_my_plan(
         )
         .first()
     )
+    # 플랜 변경
     if uap:
         uap.plan_id = body.plan_id
         db.add(uap)
@@ -167,16 +170,16 @@ def update_my_plan(
         )
         db.add(uap)
     db.commit()
-    # 게이트웨이용 Redis: plan:{account_id}:{api_id}
+    # Redis에 API별 플랜 정보 설정(plan:{account_id}:{api_slug_name})
     redis_store.set_plan_for_account_api(
         account_id=current_user.id,
         api_id=body.api_id,
-        api_name=api.name,
+        api_slug_name=body.api_slug_name,
         max_rps=plan.max_rps,
         plan_id=plan.id,
         plan_name=plan.name,
     )
-    # 응답은 GET /me 와 동일한 형태 (joinedload로 재조회)
+   
     user = (
         db.query(models.User)
         .options(

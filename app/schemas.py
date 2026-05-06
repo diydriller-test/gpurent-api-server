@@ -83,9 +83,10 @@ class UserCreate(UserBase):
 
 
 class PlanSelect(BaseModel):
-    """API별 플랜 선택/변경 요청 (api_id + plan_id)"""
+    """API별 플랜 선택/변경 요청 (api_id + plan_id + api_slug_name)"""
     api_id: int
     plan_id: int
+    api_slug_name: str
 
 
 class UserLogin(BaseModel):
