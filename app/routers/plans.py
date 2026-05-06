@@ -29,6 +29,7 @@ def list_plans(
             price_monthly=p.price_monthly,
             description=p.description,
             max_rps=p.max_rps,
+            max_ip_count=getattr(p, "max_ip_count", 0),
             period=p.period,
             features=p.features,
             is_active=p.is_active,
