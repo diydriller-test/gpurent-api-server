@@ -13,6 +13,7 @@ class PlanResponse(BaseModel):
     price_monthly: Decimal
     description: Optional[str] = None
     max_rps: int = 0
+    max_ip_count: int = 0
     period: str = "/월"
     features: Optional[List[str]] = None
     is_active: bool = True
@@ -72,6 +73,7 @@ class UserApiPlanItem(BaseModel):
     plan_id: int
     plan_name: str
     max_rps: int
+    max_ip_count: int = 0
 
 
 class UserBase(BaseModel):

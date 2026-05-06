@@ -41,6 +41,7 @@ def set_plan_for_account_api(
     api_id: int,
     api_slug_name: str,
     max_rps: int,
+    max_ip_count: int,
     plan_id: int,
     plan_name: str,
 ) -> bool:
@@ -55,6 +56,8 @@ def set_plan_for_account_api(
     key = f"plan:{account_id}:{api_slug_name}"
     value = json.dumps({
         "max_rps": max_rps,
+        "max_ip_count": max_ip_count,
+        "ip_window_seconds": 86400,
         "api_id": api_id,
         "api_slug_name": api_slug_name,
         "plan_id": plan_id,

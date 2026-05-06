@@ -14,6 +14,7 @@ class Plan(Base):
     price_monthly = Column(Numeric(10, 2), default=0)
     description = Column(Text, nullable=True)
     max_rps = Column(Integer, default=0, nullable=False)
+    max_ip_count = Column(Integer, default=0, nullable=False)
     period = Column(String(20), default="/월", nullable=False)
     features = Column(JSONB, nullable=True)
     is_active = Column(Boolean, default=True)

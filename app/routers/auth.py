@@ -112,6 +112,7 @@ def read_users_me(
             plan_id=uap.plan_id,
             plan_name=uap.plan.name,
             max_rps=uap.plan.max_rps,
+            max_ip_count=getattr(uap.plan, "max_ip_count", 0),
         )
         for uap in user.user_api_plans
     ]
@@ -176,6 +177,7 @@ def update_my_plan(
         api_id=body.api_id,
         api_slug_name=body.api_slug_name,
         max_rps=plan.max_rps,
+        max_ip_count=getattr(plan, "max_ip_count", 0),
         plan_id=plan.id,
         plan_name=plan.name,
     )
@@ -198,6 +200,7 @@ def update_my_plan(
             plan_id=uap.plan_id,
             plan_name=uap.plan.name,
             max_rps=uap.plan.max_rps,
+            max_ip_count=getattr(uap.plan, "max_ip_count", 0),
         )
         for uap in user.user_api_plans
     ]
