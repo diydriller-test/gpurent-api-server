@@ -101,6 +101,7 @@ class UserResponse(UserBase):
     id: int
     api_plans: List[UserApiPlanItem] = []  # API별 구독 플랜 목록
     is_active: bool
+    is_approved: bool = False
     created_at: Optional[datetime] = None
 
     class Config:
@@ -116,7 +117,7 @@ class TokenData(BaseModel):
 
 
 class AccountApproveRequest(BaseModel):
-    """계정(API 키) 승인 요청."""
+    """계정 승인 요청."""
 
     account_id: int
 

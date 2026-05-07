@@ -48,7 +48,7 @@ def signup(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
     # Redis에 계정 정보 설정(account:{account_id})
     redis_store.set_account_meta(
         account_id=db_user.id,
-        approved=db_api_key.is_approved,
+        approved=db_user.is_approved,
         token=api_key_jwt,
     )
 
@@ -58,6 +58,7 @@ def signup(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
         username=db_user.username,
         api_plans=[],
         is_active=db_user.is_active,
+        is_approved=db_user.is_approved,
         created_at=db_user.created_at,
     )
 
@@ -122,6 +123,7 @@ def read_users_me(
         username=user.username,
         api_plans=api_plans,
         is_active=user.is_active,
+        is_approved=user.is_approved,
         created_at=user.created_at,
     )
 
@@ -210,6 +212,7 @@ def update_my_plan(
         username=user.username,
         api_plans=api_plans,
         is_active=user.is_active,
+        is_approved=user.is_approved,
         created_at=user.created_at,
     )
 
@@ -230,10 +233,13 @@ def approve_account(body: schemas.AccountApproveRequest, db: Session = Depends(g
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
         )
-    # 가장 최근 발급분 조회
+    # 가장 최근 활성 키 조회
     latest_key = (
         db.query(models.ApiKey)
-        .filter(models.ApiKey.user_id == body.account_id)
+        .filter(
+            models.ApiKey.user_id == body.account_id,
+            models.ApiKey.is_active == True,
+        )
         .order_by(
             models.ApiKey.created_at.desc(),
             models.ApiKey.id.desc(),
@@ -245,8 +251,7 @@ def approve_account(body: schemas.AccountApproveRequest, db: Session = Depends(g
             status_code=status.HTTP_404_NOT_FOUND,
             detail="API key not found for this account",
         )
-    # 승인
-    latest_key.is_approved = True
+    user.is_approved = True
     db.commit()
     # Redis에 계정 메타 정보 설정
     redis_store.set_account_meta(
@@ -270,10 +275,15 @@ def create_api_key(
     db: Session = Depends(get_db),
 ):
     """API 키 발급"""
+    # 기존 키 비활성화
+    db.query(models.ApiKey).filter(
+        models.ApiKey.user_id == current_user.id,
+    ).update({"is_active": False}, synchronize_session=False)
     api_key_jwt = auth.create_api_key_jwt(current_user.id)
     db_api_key = models.ApiKey(
         user_id=current_user.id,
         key=api_key_jwt,
+        is_active=True,
     )
     db.add(db_api_key)
     db.commit()
@@ -281,7 +291,7 @@ def create_api_key(
     # Redis에 계정 메타 정보 설정
     redis_store.set_account_meta(
         account_id=current_user.id,
-        approved=db_api_key.is_approved,
+        approved=current_user.is_approved,
         token=api_key_jwt,
     )
 
@@ -297,10 +307,13 @@ def get_api_key(
     db: Session = Depends(get_db),
 ):
     """API 키 조회"""
-    # 가장 최근 발급분 조회
+    # 현재 활성 중인 가장 최근 키 조회
     api_key = (
         db.query(models.ApiKey)
-        .filter(models.ApiKey.user_id == current_user.id)
+        .filter(
+            models.ApiKey.user_id == current_user.id,
+            models.ApiKey.is_active == True,
+        )
         .order_by(
             models.ApiKey.created_at.desc(),
             models.ApiKey.id.desc(),
@@ -312,7 +325,16 @@ def get_api_key(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="API key not found",
         )
-    return api_key
+    db.refresh(current_user)
+    return schemas.ApiKeyResponse.model_validate(
+        {
+            "id": api_key.id,
+            "key": api_key.key,
+            "is_approved": current_user.is_approved,
+            "created_at": api_key.created_at,
+            "last_used_at": api_key.last_used_at,
+        }
+    )
 
 
 @router.delete("/api-keys", status_code=status.HTTP_204_NO_CONTENT)
