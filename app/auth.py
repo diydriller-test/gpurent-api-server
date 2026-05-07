@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 import os
+import uuid
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, Request, status
@@ -86,10 +87,12 @@ def get_current_user(
 
 
 def create_api_key_jwt(user_id: int) -> str:
-    """API 키용 JWT 생성."""
+    """API 키용 JWT 생성. 재발급 시마다 서명이 바뀌도록 jti·iat를 둠."""
     to_encode = {
         "sub": str(user_id),
         "iss": ISSUER,
+        "iat": int(datetime.now(timezone.utc).timestamp()),
+        "jti": str(uuid.uuid4()),
     }
     return jwt.encode(to_encode, API_KEY_SECRET, algorithm=ALGORITHM)
 
