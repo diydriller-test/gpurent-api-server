@@ -106,6 +106,7 @@ class BehaviorEvent(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     client_ip = Column(String(45), nullable=True)
     event_type = Column(String(20), nullable=False, index=True)
+    element_dom_type = Column(String(50), nullable=True, index=True)
     name = Column(String(500), nullable=False)
     occurred_at = Column(DateTime(timezone=True), nullable=False, index=True)
     properties = Column(JSONB, nullable=True)

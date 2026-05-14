@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -6,11 +7,40 @@ from sqlalchemy.orm import Session
 from app import auth, models, schemas
 from app.database import get_db
 
-router = APIRouter(prefix="/analytics", tags=["behavior"])
+
+def _split_analytics_path() -> tuple[str, str]:
+    """INTERNAL_ANALYTICS_PATH 예: /analytics/behavior → ("/analytics", "/behavior")."""
+    default = "/analytics/behavior"
+    raw = (os.getenv("INTERNAL_ANALYTICS_PATH") or default).strip()
+    if not raw.startswith("/"):
+        raw = "/" + raw
+    raw = raw.rstrip("/")
+    if not raw:
+        raw = default
+    segments = [p for p in raw.split("/") if p]
+    if len(segments) == 1:
+        return "", f"/{segments[0]}"
+    *rest, last = segments
+    return "/" + "/".join(rest), f"/{last}"
+
+
+def _element_dom_type(event_type: str, props: Optional[dict]) -> Optional[str]:
+    """properties JSON 의 DOM type 키(`type`)를 컬럼으로 분리 저장."""
+    if event_type != "element_click" or not props:
+        return None
+    v = props.get("type")
+    if v is None:
+        return None
+    s = str(v).strip()
+    return s[:50] if s else None
+
+
+_route_prefix, _route_path = _split_analytics_path()
+router = APIRouter(prefix=_route_prefix, tags=["behavior"])
 
 
 @router.post(
-    "/behavior",
+    _route_path,
     response_model=schemas.BehaviorIngestResponse,
     status_code=status.HTTP_201_CREATED,
 )
@@ -46,6 +76,7 @@ def ingest_behavior(
             user_id=resolved_user_id,
             client_ip=body.client_ip,
             event_type=e.type,
+            element_dom_type=_element_dom_type(e.type, e.properties),
             name=e.name,
             occurred_at=e.occurred_at,
             properties=e.properties,

@@ -1,4 +1,12 @@
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+)
 from typing import Optional, List, Literal, Any
 from datetime import datetime
 from decimal import Decimal
@@ -144,11 +152,51 @@ class ApiKeyResponse(BaseModel):
         from_attributes = True
 
 
-BehaviorEventType = Literal["page_view", "click", "custom"]
+BehaviorEventType = Literal["page_view", "element_click", "custom"]
+
+
+class PageViewProperties(BaseModel):
+    """page_view 이벤트 properties (path·title + 확장 필드)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    path: Optional[str] = None
+    title: Optional[str] = None
+
+
+class ElementClickProperties(BaseModel):
+    """element_click 이벤트 properties. DOM 의 type 은 dom_element_type 으로 파싱해 이벤트 최상위 type 과 구분."""
+
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    dom_element_type: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("type", "dom_element_type"),
+        serialization_alias="type",
+    )
+    text: Optional[str] = None
+    href: Optional[str] = None
+    data_behavior: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("data_behavior", "dataBehavior"),
+        serialization_alias="data_behavior",
+    )
+    element_id: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("id", "element_id"),
+        serialization_alias="id",
+    )
+    class_name: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("className", "class_name"),
+        serialization_alias="className",
+    )
+    role: Optional[str] = None
+    page_path: Optional[str] = None
 
 
 class BehaviorEventItem(BaseModel):
-    """단일 행동 이벤트 (클라이언트 정규화 형태와 동일)."""
+    """단일 행동 이벤트 (Next 정규화 형태). 구 click 은 element_click 으로만 수신."""
 
     type: BehaviorEventType
     name: str = ""
@@ -162,6 +210,38 @@ class BehaviorEventItem(BaseModel):
             return "unknown"
         s = str(v).strip()
         return s if s else "unknown"
+
+    @model_validator(mode="after")
+    def validate_properties_by_type(self) -> "BehaviorEventItem":
+        props = self.properties
+        if props is None:
+            return self
+        if not isinstance(props, dict):
+            raise ValueError("properties must be an object")
+        if self.type == "page_view":
+            parsed = PageViewProperties.model_validate(props)
+            return self.model_copy(
+                update={
+                    "properties": parsed.model_dump(
+                        mode="json",
+                        by_alias=True,
+                        exclude_none=True,
+                    )
+                }
+            )
+        if self.type == "element_click":
+            parsed = ElementClickProperties.model_validate(props)
+            return self.model_copy(
+                update={
+                    "properties": parsed.model_dump(
+                        mode="json",
+                        by_alias=True,
+                        exclude_none=True,
+                    )
+                }
+            )
+        # custom: 자유 형태, 검증만 dict
+        return self
 
 
 class BehaviorBatchRequest(BaseModel):
