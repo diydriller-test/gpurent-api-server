@@ -104,3 +104,22 @@ def delete_account_meta(account_id: int) -> bool:
         return True
     except Exception:
         return False
+
+
+def delete_all_account_redis_keys(account_id: int) -> bool:
+    """
+    plan:{account_id}:* 및 account:{account_id} 전부 삭제.
+    게이트웨이 캐시를 DB 기준으로 다시 채우기 전에 호출.
+    """
+    client = get_redis()
+    if not client:
+        return False
+    try:
+        match = f"plan:{account_id}:*"
+        keys = list(client.scan_iter(match=match, count=256))
+        keys.append(f"account:{account_id}")
+        if keys:
+            client.delete(*keys)
+        return True
+    except Exception:
+        return False

@@ -136,6 +136,15 @@ class AccountApproveResponse(BaseModel):
     approved: bool
 
 
+class AccountRedisRebuildResponse(BaseModel):
+    """계정별 Redis(plan·account) 삭제 후 DB 기준 재동기화 결과."""
+
+    account_id: int
+    cleared: bool
+    account_meta_refreshed: bool
+    plans_written: int
+
+
 class ApiKeyIssueResponse(BaseModel):
     api_key: str
     message: str = "API 키는 이번에만 표시됩니다. 안전한 곳에 저장하세요."

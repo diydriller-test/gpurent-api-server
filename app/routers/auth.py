@@ -266,6 +266,93 @@ def approve_account(body: schemas.AccountApproveRequest, db: Session = Depends(g
 
 
 @router.post(
+    "/accounts/redis-rebuild",
+    response_model=schemas.AccountRedisRebuildResponse,
+    status_code=status.HTTP_200_OK,
+)
+def rebuild_account_redis_cache(
+    body: schemas.AccountApproveRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    account_id 기준으로 Redis의 plan:{id}:*, account:{id}를 모두 지운 뒤
+    DB(user_api_plans, 활성 API 키)를 읽어 다시 기록한다.
+    """
+    if redis_store.get_redis() is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Redis is not configured or unavailable",
+        )
+
+    user = db.query(models.User).filter(models.User.id == body.account_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    if not redis_store.delete_all_account_redis_keys(body.account_id):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to clear Redis keys for this account",
+        )
+
+    latest_key = (
+        db.query(models.ApiKey)
+        .filter(
+            models.ApiKey.user_id == body.account_id,
+            models.ApiKey.is_active == True,
+        )
+        .order_by(
+            models.ApiKey.created_at.desc(),
+            models.ApiKey.id.desc(),
+        )
+        .first()
+    )
+
+    account_meta_refreshed = False
+    if latest_key:
+        account_meta_refreshed = redis_store.set_account_meta(
+            account_id=body.account_id,
+            approved=user.is_approved,
+            token=latest_key.key,
+        )
+
+    uaps = (
+        db.query(models.UserApiPlan)
+        .options(
+            joinedload(models.UserApiPlan.api),
+            joinedload(models.UserApiPlan.plan),
+        )
+        .filter(models.UserApiPlan.user_id == body.account_id)
+        .all()
+    )
+
+    plans_written = 0
+    for uap in uaps:
+        api = uap.api
+        plan = uap.plan
+        api_slug = (api.slug or "").strip() or str(api.id)
+        if redis_store.set_plan_for_account_api(
+            account_id=body.account_id,
+            api_id=uap.api_id,
+            api_slug_name=api_slug,
+            max_rps=plan.max_rps,
+            max_ip_count=getattr(plan, "max_ip_count", 0),
+            plan_id=plan.id,
+            plan_name=plan.name,
+        ):
+            plans_written += 1
+
+    return schemas.AccountRedisRebuildResponse(
+        account_id=body.account_id,
+        cleared=True,
+        account_meta_refreshed=account_meta_refreshed,
+        plans_written=plans_written,
+    )
+
+
+@router.post(
     "/api-keys",
     response_model=schemas.ApiKeyIssueResponse,
     status_code=status.HTTP_201_CREATED,
