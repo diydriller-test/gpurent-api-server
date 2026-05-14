@@ -1,5 +1,5 @@
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
-from typing import Optional, List
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from typing import Optional, List, Literal, Any
 from datetime import datetime
 from decimal import Decimal
 
@@ -142,3 +142,33 @@ class ApiKeyResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+BehaviorEventType = Literal["page_view", "click", "custom"]
+
+
+class BehaviorEventItem(BaseModel):
+    """단일 행동 이벤트 (클라이언트 정규화 형태와 동일)."""
+
+    type: BehaviorEventType
+    name: str = ""
+    occurred_at: datetime
+    properties: Optional[dict[str, Any]] = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def normalize_name(cls, v: Any) -> str:
+        if v is None:
+            return "unknown"
+        s = str(v).strip()
+        return s if s else "unknown"
+
+
+class BehaviorBatchRequest(BaseModel):
+    events: List[BehaviorEventItem] = Field(..., min_length=1, max_length=100)
+    user_id: Optional[int] = None
+    client_ip: Optional[str] = None
+
+
+class BehaviorIngestResponse(BaseModel):
+    accepted: int

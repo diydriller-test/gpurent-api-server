@@ -6,7 +6,7 @@ import os
 load_dotenv()
 
 from app.database import engine, Base, SessionLocal
-from app.routers import auth, plans, apis
+from app.routers import auth, plans, apis, behavior
 from app import models
 
 Base.metadata.create_all(bind=engine)
@@ -29,6 +29,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(plans.router)
 app.include_router(apis.router)
+app.include_router(behavior.router)
 
 @app.get("/health")
 def health_check():

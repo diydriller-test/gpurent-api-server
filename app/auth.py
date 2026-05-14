@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, Annotated
 import os
 import uuid
 from jose import JWTError, jwt
@@ -20,6 +20,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 1
 
 bearer_scheme = HTTPBearer()
+optional_bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -84,6 +85,27 @@ def get_current_user(
     if user is None:
         raise credentials_exception
     return user
+
+
+def get_current_user_optional(
+    credentials: Annotated[
+        Optional[HTTPAuthorizationCredentials],
+        Depends(optional_bearer_scheme),
+    ],
+    db: Session = Depends(get_db),
+) -> Optional[models.User]:
+    """Bearer가 없거나 토큰이 유효하지 않으면 None. 행동 로깅 등 익명 허용 엔드포인트용."""
+    if credentials is None:
+        return None
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, AUTH_SECRET, algorithms=[ALGORITHM])
+        email: Optional[str] = payload.get("sub")
+        if email is None or not isinstance(email, str):
+            return None
+    except JWTError:
+        return None
+    return get_user_by_email(db, email=email)
 
 
 def create_api_key_jwt(user_id: int) -> str:

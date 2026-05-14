@@ -97,3 +97,16 @@ class ApiKey(Base):
     last_used_at = Column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", back_populates="api_keys")
+
+
+class BehaviorEvent(Base):
+    __tablename__ = "behavior_events"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    client_ip = Column(String(45), nullable=True)
+    event_type = Column(String(20), nullable=False, index=True)
+    name = Column(String(500), nullable=False)
+    occurred_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    properties = Column(JSONB, nullable=True)
+    received_at = Column(DateTime(timezone=True), server_default=func.now())
