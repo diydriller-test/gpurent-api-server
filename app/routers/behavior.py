@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app import auth, models, schemas
 from app.database import get_db
 
-router = APIRouter(prefix="/api", tags=["behavior"])
+router = APIRouter(prefix="/analytics", tags=["behavior"])
 
 
 @router.post(
