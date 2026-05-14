@@ -86,7 +86,7 @@ def login_with_email(
     access_token = auth.create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
-    return {"access_token": access_token}
+    return {"access_token": access_token, "user_id": user.id}
 
 
 @router.get("/me", response_model=schemas.UserResponse)

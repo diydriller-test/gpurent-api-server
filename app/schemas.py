@@ -110,6 +110,7 @@ class UserResponse(UserBase):
 
 class Token(BaseModel):
     access_token: str
+    user_id: int
 
 
 class TokenData(BaseModel):
