@@ -261,3 +261,52 @@ class BehaviorBatchRequest(BaseModel):
 
 class BehaviorIngestResponse(BaseModel):
     accepted: int
+
+
+TRACKED_PAGE_PATHS: tuple[str, ...] = ("/", "/api-test", "/plans", "/docs")
+
+
+class BehaviorVisitorItem(BaseModel):
+    """접속 이력이 있는 방문자 (로그인 user_id 또는 익명 client_ip)."""
+
+    key: str
+    user_id: Optional[int] = None
+    client_ip: Optional[str] = None
+    last_seen_at: datetime
+    event_count: int
+
+
+class BehaviorVisitorListResponse(BaseModel):
+    visitors: List[BehaviorVisitorItem]
+    window_minutes: int
+
+
+class BehaviorEventRecord(BaseModel):
+    id: int
+    user_id: Optional[int] = None
+    client_ip: Optional[str] = None
+    event_type: str
+    element_dom_type: Optional[str] = None
+    name: str
+    occurred_at: datetime
+    properties: Optional[dict[str, Any]] = None
+    received_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class BehaviorVisitorTimelineResponse(BaseModel):
+    user_id: Optional[int] = None
+    client_ip: Optional[str] = None
+    window_minutes: int = 10
+    events: List[BehaviorEventRecord]
+
+
+class BehaviorPageStatItem(BaseModel):
+    path: str
+    visit_count: int
+
+
+class BehaviorPageStatsResponse(BaseModel):
+    pages: List[BehaviorPageStatItem]
