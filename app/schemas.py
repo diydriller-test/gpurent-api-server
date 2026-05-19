@@ -82,6 +82,7 @@ class UserApiPlanItem(BaseModel):
     plan_name: str
     max_rps: int
     max_ip_count: int = 0
+    created_at: Optional[datetime] = None  # user_api_plans.created_at (구독일)
 
 
 class UserBase(BaseModel):
