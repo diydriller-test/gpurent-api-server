@@ -126,6 +126,23 @@ class TokenData(BaseModel):
     email: Optional[str] = None
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ForgotPasswordResponse(BaseModel):
+    message: str = "If the email exists, a reset link has been sent."
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+class ResetPasswordResponse(BaseModel):
+    message: str = "Password has been reset successfully."
+
+
 class AccountApproveRequest(BaseModel):
     """계정 승인 요청."""
 

@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Annotated
+import hashlib
 import os
+import secrets
 import uuid
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -18,6 +20,7 @@ ISSUER = os.getenv("ISSUER", "")
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 1
+PASSWORD_RESET_EXPIRE_MINUTES = int(os.getenv("PASSWORD_RESET_EXPIRE_MINUTES", "30"))
 
 bearer_scheme = HTTPBearer()
 optional_bearer_scheme = HTTPBearer(auto_error=False)
@@ -106,6 +109,53 @@ def get_current_user_optional(
     except JWTError:
         return None
     return get_user_by_email(db, email=email)
+
+
+def hash_reset_token(token: str) -> str:
+    """비밀번호 재설정 토큰 해시 (SHA-256)"""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def create_password_reset_token(db: Session, user: models.User) -> str:
+    """재설정 토큰 생성·저장 후 원본 토큰 반환"""
+    plain_token = secrets.token_urlsafe(32)
+    token_hash = hash_reset_token(plain_token)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=PASSWORD_RESET_EXPIRE_MINUTES)
+
+    db.query(models.PasswordResetToken).filter(
+        models.PasswordResetToken.user_id == user.id,
+        models.PasswordResetToken.used_at.is_(None),
+    ).update({"used_at": datetime.now(timezone.utc)}, synchronize_session=False)
+
+    db_token = models.PasswordResetToken(
+        user_id=user.id,
+        token_hash=token_hash,
+        expires_at=expires_at,
+    )
+    db.add(db_token)
+    db.commit()
+    return plain_token
+
+
+def get_valid_reset_token(db: Session, plain_token: str) -> Optional[models.PasswordResetToken]:
+    """유효한(미사용·미만료) 재설정 토큰 조회"""
+    token_hash = hash_reset_token(plain_token)
+    reset_token = (
+        db.query(models.PasswordResetToken)
+        .filter(models.PasswordResetToken.token_hash == token_hash)
+        .first()
+    )
+    if not reset_token:
+        return None
+    if reset_token.used_at is not None:
+        return None
+    now = datetime.now(timezone.utc)
+    expires_at = reset_token.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at <= now:
+        return None
+    return reset_token
 
 
 def create_api_key_jwt(user_id: int) -> str:

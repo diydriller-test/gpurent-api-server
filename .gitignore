@@ -11,6 +11,8 @@ ENV/
 
 # Environment variables
 .env
+credentials.json
+gmail_token.json
 
 # IDE
 .vscode/
@@ -24,3 +26,6 @@ ENV/
 
 # Logs
 *.log
+
+credentials.json
+gmail_token.json

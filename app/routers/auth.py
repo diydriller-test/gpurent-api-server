@@ -1,10 +1,11 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session, joinedload
 from app import models, schemas, auth
 from app.database import get_db
 from app import redis_client as redis_store
+from app import email_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -87,6 +88,47 @@ def login_with_email(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "user_id": user.id}
+
+
+@router.post("/forgot-password", response_model=schemas.ForgotPasswordResponse)
+def forgot_password(
+    body: schemas.ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    """비밀번호 재설정 링크 이메일 발송"""
+    user = auth.get_user_by_email(db, email=body.email)
+    if user and user.is_active:
+        plain_token = auth.create_password_reset_token(db, user)
+        email_service.send_password_reset_email(user.email, plain_token)
+
+    return schemas.ForgotPasswordResponse()
+
+
+@router.post("/reset-password", response_model=schemas.ResetPasswordResponse)
+def reset_password(
+    body: schemas.ResetPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    """비밀번호 재설정"""
+    reset_token = auth.get_valid_reset_token(db, body.token)
+    if not reset_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token",
+        )
+
+    user = db.query(models.User).filter(models.User.id == reset_token.user_id).first()
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token",
+        )
+
+    user.hashed_password = auth.get_password_hash(body.new_password)
+    reset_token.used_at = datetime.now(timezone.utc)
+    db.commit()
+
+    return schemas.ResetPasswordResponse()
 
 
 @router.get("/me", response_model=schemas.UserResponse)
