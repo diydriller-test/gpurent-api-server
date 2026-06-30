@@ -190,6 +190,24 @@ USERS: list[dict] = [
     {"email": "99rain@hanmail.net", "username": "강옥선", "subscriptions": [("음성을 텍스트로 변환(STT)", 90_000)]},
     {"email": "ehc0503@hanmail.net", "username": "채은하", "subscriptions": [("이미지 생성(Image Generation)", 300_000)]},
     {"email": "aou8908@gmail.com", "username": "훈대표", "subscriptions": [("대규모 언어 모델(LLM)", 450_000)]},
+    {"email": "seoun200517@naver.com", "username": "은채채", "subscriptions": [
+        ("텍스트를 음성으로 변환(TTS)", 90_000),
+    ]},
+    {"email": "jackey117@naver.com", "username": "03황제영", "subscriptions": [
+        ("이미지 생성(Image Generation)", 300_000),
+    ]},
+    {"email": "a33876935@gmail.com", "username": "문영재", "subscriptions": [
+        ("음성을 텍스트로 변환(STT)", 90_000),
+    ]},
+    {"email": "jinseo8008@naver.com", "username": "플루처", "subscriptions": [
+        ("대규모 언어 모델(LLM)", 450_000),
+        ("음성을 텍스트로 변환(STT)", 90_000),
+        ("이미지를 문장으로 변환(Image-to-Text)", 240_000),
+        ("텍스트 임베딩(Embedding)", 60_000),
+    ]},
+    {"email": "yerim06072@naver.com", "username": "예림님", "subscriptions": [
+        ("음성을 텍스트로 변환(STT)", 90_000),
+    ]},
 ]
 
 
