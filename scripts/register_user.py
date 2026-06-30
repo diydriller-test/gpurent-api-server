@@ -208,6 +208,9 @@ USERS: list[dict] = [
     {"email": "yerim06072@naver.com", "username": "예림님", "subscriptions": [
         ("음성을 텍스트로 변환(STT)", 90_000),
     ]},
+    {"email": "dhrhd080@naver.com", "username": "박현종", "subscriptions": [
+        ("음성을 텍스트로 변환(STT)", 90_000),
+    ]},
 ]
 
 

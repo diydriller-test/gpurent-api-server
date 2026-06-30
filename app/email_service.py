@@ -40,6 +40,32 @@ def _get_gmail_service():
     return build("gmail", "v1", credentials=creds, cache_discovery=False)
 
 
+def send_plain_email(to_email: str, subject: str, body: str) -> bool:
+    """Gmail API로 일반 텍스트 메일 발송."""
+    service = _get_gmail_service()
+    if service is None:
+        logger.error(
+            "Gmail API is not configured (GMAIL_TOKEN_FILE, EMAIL_FROM required)"
+        )
+        return False
+
+    message = MIMEText(body, "plain", "utf-8")
+    message["To"] = to_email
+    message["From"] = EMAIL_FROM
+    message["Subject"] = subject
+    encoded = base64.urlsafe_b64encode(message.as_bytes()).decode()
+
+    try:
+        service.users().messages().send(
+            userId="me",
+            body={"raw": encoded},
+        ).execute()
+        return True
+    except Exception:
+        logger.exception("Failed to send email to %s", to_email)
+        return False
+
+
 def send_password_reset_email(to_email: str, plain_token: str) -> bool:
     """Gmail API로 비밀번호 재설정 메일 발송"""
     service = _get_gmail_service()
