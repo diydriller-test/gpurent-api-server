@@ -13,12 +13,21 @@ POST /auth/accounts/redis-rebuild 와 동일한 로직:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+from dotenv import load_dotenv
+
+load_dotenv(ROOT / ".env")
+
+DEFAULT_REDIS_URL = "redis://192.168.1.20:6379"
+if not os.getenv("REDIS_URL"):
+    os.environ["REDIS_URL"] = DEFAULT_REDIS_URL
 
 from sqlalchemy.orm import Session, joinedload
 
@@ -73,9 +82,12 @@ def rebuild_user_redis(db: Session, user: models.User) -> tuple[bool, int]:
 
 
 def sync_users(db: Session, *, min_id: int = DEFAULT_MIN_ID, dry_run: bool = False) -> None:
+    redis_url = os.getenv("REDIS_URL", DEFAULT_REDIS_URL)
     if redis_client.get_redis() is None and not dry_run:
-        print("오류: Redis가 설정되지 않았거나 연결할 수 없습니다. (REDIS_URL 확인)")
+        print(f"오류: Redis 연결 실패 ({redis_url})")
         sys.exit(1)
+    if not dry_run:
+        print(f"Redis: {redis_url}")
 
     users = (
         db.query(models.User)
