@@ -290,7 +290,7 @@ def register_users(db: Session, *, dry_run: bool = False, sync_redis: bool = Tru
                 username=username,
                 hashed_password=hashed_password,
                 is_active=True,
-                is_approved=False,
+                is_approved=True,
             )
             db.add(user)
             db.flush()
