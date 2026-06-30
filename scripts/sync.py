@@ -36,6 +36,32 @@ from app.database import SessionLocal
 
 DEFAULT_MIN_ID = 20
 
+# apis.id -> apis.slug (public.apis 기준)
+API_SLUG_BY_ID: dict[int, str] = {
+    1: "llm",
+    2: "embedding",
+    3: "reranker",
+    4: "tts",
+    5: "stt",
+    6: "voiceclone",
+    7: "copywrite",
+    8: "summary",
+    9: "sentiment",
+    10: "ner",
+    11: "sql",
+    12: "ocr",
+    13: "image",
+    14: "music",
+}
+
+
+def resolve_api_slug(api_id: int, db_slug: str | None) -> str:
+    if api_id in API_SLUG_BY_ID:
+        return API_SLUG_BY_ID[api_id]
+    if db_slug and db_slug.strip():
+        return db_slug.strip()
+    return str(api_id)
+
 
 def rebuild_user_redis(db: Session, user: models.User) -> tuple[bool, int]:
     """단일 유저 Redis 재동기화. (account_meta_refreshed, plans_written) 반환."""
@@ -66,7 +92,7 @@ def rebuild_user_redis(db: Session, user: models.User) -> tuple[bool, int]:
 
     plans_written = 0
     for uap in uaps:
-        api_slug = (uap.api.slug or "").strip() or str(uap.api.id)
+        api_slug = resolve_api_slug(uap.api_id, uap.api.slug)
         if redis_client.set_plan_for_account_api(
             account_id=user.id,
             api_id=uap.api_id,
