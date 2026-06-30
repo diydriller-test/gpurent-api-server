@@ -29,15 +29,50 @@ DEFAULT_PASSWORD = "20260701!"
 # api: 1=LLM, 2=Embedding, 3=Reranker, 4=TTS, 5=STT, 6=VoiceClone,
 #      12=Vision OCR, 13=Image Generation, 14=Music Generation
 PLAN_MAP: dict[tuple[str, int], tuple[int, int]] = {
-    ("대규모 언어 모델(LLM)", 450_000): (1, 2),
-    ("텍스트 임베딩(Embedding)", 60_000): (2, 5),
-    ("문장 재순위(Reranking)", 90_000): (3, 8),
-    ("텍스트를 음성으로 변환(TTS)", 90_000): (4, 11),
-    ("음성을 텍스트로 변환(STT)", 90_000): (5, 14),
-    ("목소리 복제(Voice Clone)", 90_000): (6, 17),
-    ("이미지를 문장으로 변환(Image-to-Text)", 240_000): (12, 38),
-    ("이미지 생성(Image Generation)", 300_000): (13, 41),
-    ("텍스트를 음악으로 변환(Text-to-Music)", 180_000): (14, 44),
+    # LLM
+    ("대규모 언어 모델(LLM)", 150_000): (1, 1),   # Starter
+    ("대규모 언어 모델(LLM)", 450_000): (1, 2),   # Pro
+    ("대규모 언어 모델(LLM)", 0): (1, 3),         # Enterprise
+
+    # Embedding
+    ("텍스트 임베딩(Embedding)", 20_000): (2, 4),  # Starter
+    ("텍스트 임베딩(Embedding)", 60_000): (2, 5),  # Pro
+    ("텍스트 임베딩(Embedding)", 0): (2, 6),       # Enterprise
+
+    # Reranker
+    ("문장 재순위(Reranking)", 30_000): (3, 7),    # Starter
+    ("문장 재순위(Reranking)", 90_000): (3, 8),    # Pro
+    ("문장 재순위(Reranking)", 0): (3, 9),         # Enterprise
+
+    # TTS
+    ("텍스트를 음성으로 변환(TTS)", 30_000): (4, 10),  # Starter
+    ("텍스트를 음성으로 변환(TTS)", 90_000): (4, 11),  # Pro
+    ("텍스트를 음성으로 변환(TTS)", 0): (4, 12),       # Enterprise
+
+    # STT
+    ("음성을 텍스트로 변환(STT)", 30_000): (5, 13),  # Starter
+    ("음성을 텍스트로 변환(STT)", 90_000): (5, 14),  # Pro
+    ("음성을 텍스트로 변환(STT)", 0): (5, 15),       # Enterprise
+
+    # Voice Clone
+    ("목소리 복제(Voice Clone)", 30_000): (6, 16),  # Starter
+    ("목소리 복제(Voice Clone)", 90_000): (6, 17),  # Pro
+    ("목소리 복제(Voice Clone)", 0): (6, 18),       # Enterprise
+
+    # Vision OCR / Image-to-Text
+    ("이미지를 문장으로 변환(Image-to-Text)", 80_000): (12, 37),   # Starter
+    ("이미지를 문장으로 변환(Image-to-Text)", 240_000): (12, 38),  # Pro
+    ("이미지를 문장으로 변환(Image-to-Text)", 0): (12, 39),        # Enterprise
+
+    # Image Generation
+    ("이미지 생성(Image Generation)", 100_000): (13, 40),  # Starter
+    ("이미지 생성(Image Generation)", 300_000): (13, 41),  # Pro
+    ("이미지 생성(Image Generation)", 0): (13, 42),        # Enterprise
+
+    # Music Generation
+    ("문장을 음악으로 변환(Text-to-Music)", 50_000): (14, 43),   # Starter
+    ("문장을 음악으로 변환(Text-to-Music)", 180_000): (14, 44),  # Pro
+    ("문장을 음악으로 변환(Text-to-Music)", 0): (14, 45),        # Enterprise
 }
 
 # email, username(닉네임), subscriptions: [(솔루션명, 가격), ...]
